@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Open a [private security advisory](https://github.com/heigen007/voxkey/security/advisories/new).
+Open a [private security advisory](https://github.com/Heigen007/Voxkey/security/advisories/new).
 Please do not open a public issue for anything exploitable.
 
 ## What this app can do, stated plainly
@@ -43,7 +43,7 @@ Releases are built by GitHub Actions from a tagged commit, in public logs, and
 signed with a build provenance attestation:
 
 ```
-gh attestation verify Voxkey.exe --repo heigen007/voxkey
+gh attestation verify Voxkey.exe --repo Heigen007/Voxkey
 ```
 
 That ties the file to a specific commit and workflow run. No executable is

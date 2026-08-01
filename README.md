@@ -6,20 +6,24 @@
 
 Anywhere in Windows — browser, chat, code editor, spreadsheet, address bar.
 
-[![CI](https://github.com/heigen007/voxkey/actions/workflows/ci.yml/badge.svg)](https://github.com/heigen007/voxkey/actions/workflows/ci.yml)
+[![CI](https://github.com/Heigen007/Voxkey/actions/workflows/ci.yml/badge.svg)](https://github.com/Heigen007/Voxkey/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776ab)
 
-</div>
+<br>
 
-<!-- Demo GIF goes here: docs/demo.gif -->
+<img src="docs/recording-bar.png" alt="The Voxkey recording bar: a timer, a live level meter, and stop and cancel buttons" width="420">
+
+</div>
 
 ```
 Ctrl+Alt+Space   start recording
 Enter            stop — text lands at your cursor
 Esc              cancel
 ```
+
+<!-- TODO: a demo GIF belongs here, showing dictation into a real input: docs/demo.gif -->
 
 ---
 
@@ -43,7 +47,7 @@ projects instead — that is a real trade-off, not a missing feature.
 ## Quick start
 
 1. **Get the app.** Download `Voxkey.exe` from
-   [Releases](https://github.com/heigen007/voxkey/releases), or
+   [Releases](https://github.com/Heigen007/Voxkey/releases), or
    [build it yourself](#building-from-source) — the binary is built by CI from
    the tagged source, never uploaded by hand.
 2. **Run it.** Windows will warn you about an unsigned app; see
@@ -53,6 +57,10 @@ projects instead — that is a real trade-off, not a missing feature.
    API key, press **Test** — it records three seconds and shows you exactly what
    came back. Tick **Start with Windows** and you are done.
 
+<p align="center">
+  <img src="docs/settings.png" alt="The Voxkey settings window: provider, API key, model, language, hotkey, and a Test button" width="520">
+</p>
+
 That is it. No terminal, no config file to edit, no Python.
 
 ### Setting it up with an AI assistant
@@ -61,7 +69,7 @@ If you use Claude Code, Cursor, or a similar agent, paste this and let it do
 the work:
 
 ```text
-Set up Voxkey (https://github.com/heigen007/voxkey), a Windows voice dictation
+Set up Voxkey (https://github.com/Heigen007/Voxkey), a Windows voice dictation
 tool, on this machine.
 
 1. Clone the repository into a folder that will not move afterwards.
@@ -138,7 +146,7 @@ config, `VOXKEY_API_KEY` supplies a key without writing it to disk.
 ## Building from source
 
 ```powershell
-git clone https://github.com/heigen007/voxkey
+git clone https://github.com/Heigen007/Voxkey
 cd voxkey
 py -3 -m venv .venv
 .venv\Scripts\python.exe -m pip install -e ".[dev]"
@@ -169,7 +177,7 @@ What you can actually do about it:
 - **Verify the binary came from that source.** Releases are built by GitHub
   Actions and signed with a build attestation:
   ```
-  gh attestation verify Voxkey.exe --repo heigen007/voxkey
+  gh attestation verify Voxkey.exe --repo Heigen007/Voxkey
   ```
 - **Or build it yourself** with the commands above and trust nothing.
 

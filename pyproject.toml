@@ -29,8 +29,8 @@ dependencies = [
 dev = ["pytest>=8.0", "pyinstaller>=6.0"]
 
 [project.urls]
-Homepage = "https://github.com/heigen007/voxkey"
-Issues = "https://github.com/heigen007/voxkey/issues"
+Homepage = "https://github.com/Heigen007/Voxkey"
+Issues = "https://github.com/Heigen007/Voxkey/issues"
 
 [project.gui-scripts]
 voxkey = "voxkey.app:main"

@@ -34,5 +34,5 @@ First public release.
 - Releases built by CI from a tag, with build provenance attestation and
   SHA256. No binary is committed to the repository.
 
-[Unreleased]: https://github.com/heigen007/voxkey/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/heigen007/voxkey/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Heigen007/Voxkey/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/Heigen007/Voxkey/releases/tag/v0.1.0
