@@ -53,6 +53,12 @@ Build: `powershell -ExecutionPolicy Bypass -File build.ps1`
 - **PowerShell scripts are ASCII-only.** Windows PowerShell 5.1 reads a `.ps1`
   without a BOM as ANSI, and non-ASCII characters break the parser, not just
   the output.
+- **The hotkey watchdog re-registers the hooks after 60 s of silence.** Not
+  paranoia: Windows silently removes a low-level keyboard hook whose callback
+  overruns `LowLevelHooksTimeout` (300 ms), and the app cannot detect that.
+  Observed in practice under heavy CPU load — the process kept running and
+  the hotkey simply stopped. Silence is the only signal available, and
+  re-arming while nobody types is free. Do not "optimise" this away.
 
 ## Layout
 

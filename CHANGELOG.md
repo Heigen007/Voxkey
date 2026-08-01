@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The hotkey could stop working while the app kept running. Windows silently
+  removes a low-level keyboard hook whose callback overruns its 300 ms
+  timeout, which a Python callback on a loaded machine can do. A watchdog now
+  re-registers the hooks after 60 seconds without a single key event, so the
+  app heals itself instead of needing a restart.
+
 ## [0.1.0] - 2026-08-01
 
 First public release.

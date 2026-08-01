@@ -5,10 +5,12 @@ it reaches the app and submits an empty form a second before the transcript
 gets pasted into it.
 """
 
+import time
 from types import SimpleNamespace
 
 import pytest
 
+from voxkey import hotkey
 from voxkey.hotkey import HotkeyListener
 
 DOWN = 'down'
@@ -67,3 +69,72 @@ def test_other_keys_pass_through_while_recording(listener):
     listener.state['recording'] = True
     assert press(listener, 'a') == (True, [])
     assert press(listener, 'backspace') == (True, [])
+
+
+# --- the watchdog ---------------------------------------------------------
+#
+# Windows drops a low-level hook whose callback overruns its timeout, without
+# telling anyone: the process lives on and the hotkey silently stops working.
+# Silence from the hook is the only available signal.
+
+
+def test_silence_is_what_triggers_a_re_arm(listener):
+    listener._last_event = time.monotonic()
+    assert listener._should_rearm(time.monotonic()) is False
+
+    listener._last_event = time.monotonic() - (hotkey.REARM_AFTER_SECONDS + 1)
+    assert listener._should_rearm(time.monotonic()) is True
+
+
+def test_any_key_counts_as_proof_of_life(listener):
+    """Even keys the app passes straight through must reset the clock."""
+    listener._last_event = time.monotonic() - 10_000
+    assert listener._should_rearm(time.monotonic()) is True
+
+    press(listener, 'a')
+    assert listener._should_rearm(time.monotonic()) is False
+
+
+def test_watchdog_reinstalls_the_hooks_after_silence(monkeypatch):
+    """The real loop, with the keyboard module stubbed out."""
+    installs = []
+    monkeypatch.setattr(hotkey.keyboard, 'add_hotkey', lambda *a, **k: installs.append('hotkey') or 'h1')
+    monkeypatch.setattr(hotkey.keyboard, 'hook', lambda *a, **k: installs.append('hook') or 'h2')
+    monkeypatch.setattr(hotkey.keyboard, 'unhook', lambda handle: None)
+    monkeypatch.setattr(hotkey, 'WATCHDOG_INTERVAL_SECONDS', 0.05)
+
+    listener = HotkeyListener(
+        'ctrl+alt+space',
+        on_toggle=lambda: None,
+        on_cancel=lambda: None,
+        is_recording=lambda: False,
+        rearm_after=0.1,
+    )
+    listener.start()
+    try:
+        deadline = time.monotonic() + 5
+        while listener.rearm_count < 1 and time.monotonic() < deadline:
+            time.sleep(0.05)
+    finally:
+        listener.stop()
+
+    assert listener.rearm_count >= 1, 'the watchdog never re-armed'
+    assert installs.count('hook') >= 2, 'the blocking hook was not re-installed'
+    assert installs.count('hotkey') >= 2, 'the hotkey was not re-registered'
+
+
+def test_stopping_ends_the_watchdog(monkeypatch):
+    monkeypatch.setattr(hotkey.keyboard, 'add_hotkey', lambda *a, **k: 'h1')
+    monkeypatch.setattr(hotkey.keyboard, 'hook', lambda *a, **k: 'h2')
+    monkeypatch.setattr(hotkey.keyboard, 'unhook', lambda handle: None)
+    monkeypatch.setattr(hotkey, 'WATCHDOG_INTERVAL_SECONDS', 0.05)
+
+    listener = HotkeyListener(
+        'ctrl+alt+space', lambda: None, lambda: None, lambda: False, rearm_after=0.1
+    )
+    listener.start()
+    listener.stop()
+    time.sleep(0.4)
+
+    assert listener.rearm_count == 0
+    assert not listener._watchdog.is_alive()
