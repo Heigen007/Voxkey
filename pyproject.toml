@@ -1,0 +1,46 @@
+[project]
+name = "voxkey"
+version = "0.1.0"
+description = "Hotkey voice dictation for Windows. Speak, and the text lands in whatever input you were typing in."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Grigoriy" }]
+keywords = ["dictation", "speech-to-text", "windows", "hotkey", "whisper", "voice"]
+classifiers = [
+    "Environment :: Win32 (MS Windows)",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+]
+
+dependencies = [
+    "sounddevice>=0.4.6",
+    "numpy>=1.26",
+    "keyboard>=0.13.5",
+    "requests>=2.31",
+    "pyperclip>=1.8.2",
+    "pystray>=0.19.5",
+    "Pillow>=10.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pyinstaller>=6.0"]
+
+[project.urls]
+Homepage = "https://github.com/heigen007/voxkey"
+Issues = "https://github.com/heigen007/voxkey/issues"
+
+[project.gui-scripts]
+voxkey = "voxkey.app:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

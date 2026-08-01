@@ -1,0 +1,75 @@
+name: Release
+
+# Publishing a binary from an open-source repo only means something if the
+# binary is verifiably built from the source. So: no executable is ever
+# committed. It is built here, in public logs, from a tagged commit, and
+# GitHub signs an attestation tying the file to this workflow and that commit.
+#
+# Anyone can then check it before running:
+#   gh attestation verify Voxkey.exe --repo <owner>/voxkey
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+
+      - name: Test
+        run: python -m pytest -q
+
+      - name: Build
+        run: powershell -ExecutionPolicy Bypass -File build.ps1
+
+      - name: Checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash dist/Voxkey.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  Voxkey.exe" | Out-File -FilePath dist/Voxkey.exe.sha256 -Encoding ascii
+          Write-Host "SHA256: $hash"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/Voxkey.exe
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Voxkey.exe
+            dist/Voxkey.exe.sha256
+          generate_release_notes: true
+          body: |
+            ## Verify before you run it
+
+            This binary was built by GitHub Actions from the tagged commit, not
+            uploaded by hand. You can check that yourself:
+
+            ```
+            gh attestation verify Voxkey.exe --repo ${{ github.repository }}
+            ```
+
+            The SHA256 is in `Voxkey.exe.sha256`.
+
+            Windows SmartScreen will still warn on first run - the binary is
+            not code-signed, because a certificate costs a few hundred dollars
+            a year and this is a free project. Choose **More info** then
+            **Run anyway**, or build it yourself with `build.ps1`.

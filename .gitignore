@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# Build output - the binary is never committed, only attached to a Release
+build/
+dist/
+*.spec
+icon.ico
+
+# Anything that could hold a key. There are no secrets in this repo.
+.env
+config.json
+*.log
