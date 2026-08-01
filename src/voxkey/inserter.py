@@ -46,10 +46,35 @@ user32.BringWindowToTop.restype = wintypes.BOOL
 
 MODIFIERS = ('ctrl', 'shift', 'alt', 'windows')
 CLIPBOARD_RESTORE_DELAY = 0.6
+CLIPBOARD_ATTEMPTS = 6
 SW_RESTORE = 9
 
 PASTED = 'pasted'
 CLIPBOARD_ONLY = 'clipboard'
+
+
+class ClipboardBusy(Exception):
+    """Raised when another application held the clipboard open for too long."""
+
+
+def copy_with_retry(text: str, attempts: int = CLIPBOARD_ATTEMPTS) -> None:
+    """Put text on the clipboard, surviving another app holding it.
+
+    The Windows clipboard is a single shared resource that any process can
+    hold open - browsers, Office, clipboard managers all do it routinely. A
+    write during that window simply fails. The lock is momentary, so retry
+    rather than lose a dictation the user has already spoken.
+    """
+    last_error: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            pyperclip.copy(text)
+            return
+        except Exception as error:  # noqa: BLE001 - pyperclip raises its own family
+            last_error = error
+            time.sleep(0.05 * (attempt + 1))
+    logger.error('insert: clipboard locked after %d attempts: %r', attempts, last_error)
+    raise ClipboardBusy('another application is holding the clipboard') from last_error
 
 
 def current_window() -> int | None:
@@ -73,11 +98,11 @@ def insert_text(text: str, hwnd: int | None) -> str:
 
     if not _focus_window(hwnd):
         logger.warning('insert: target window unavailable, leaving text on the clipboard')
-        pyperclip.copy(text)
+        copy_with_retry(text)
         return CLIPBOARD_ONLY
 
     previous = _read_clipboard()
-    pyperclip.copy(text)
+    copy_with_retry(text)
     time.sleep(0.06)  # give the target a beat to settle after the focus change
     keyboard.send('ctrl+v')
 
@@ -155,8 +180,8 @@ def _restore_clipboard_later(previous: str, pasted: str) -> None:
         try:
             # Only restore if nothing else claimed the clipboard meanwhile.
             if pyperclip.paste() == pasted:
-                pyperclip.copy(previous)
-        except Exception as error:  # noqa: BLE001
+                copy_with_retry(previous)
+        except Exception as error:  # noqa: BLE001 - a failed restore is not worth an error
             logger.warning('insert: clipboard restore failed: %s', error)
 
     threading.Thread(target=restore, daemon=True).start()

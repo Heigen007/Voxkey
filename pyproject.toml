@@ -1,6 +1,6 @@
 [project]
 name = "voxkey"
-version = "0.1.2"
+version = "0.1.3"
 description = "Hotkey voice dictation for Windows. Speak, and the text lands in whatever input you were typing in."
 readme = "README.md"
 requires-python = ">=3.10"

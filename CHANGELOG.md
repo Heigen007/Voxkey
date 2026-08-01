@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-08-01
+
+### Fixed
+
+- **The app could go deaf: hotkey pressed, nothing happens, nothing logged.**
+  Tk stops rescheduling `after()` callbacks as soon as one raises, which
+  killed the event loop for good — the keyboard hooks kept running and key
+  presses kept landing in a queue that nobody read again. It left no trace
+  because Tk writes callback errors to stderr, and a windowed build has none.
+  The tick now reschedules from a `finally` and cannot die, and
+  `report_callback_exception` goes to the log.
+- **A locked clipboard crashed a dictation.** Any process can hold the
+  Windows clipboard open for a moment; a write during that window raises, and
+  the spoken text was lost with an unexplained error. Writes now retry with a
+  short backoff, and a genuine failure is reported as such.
+- Unexpected failures name the exception on the bar instead of pointing at a
+  log file that is disabled by default.
+
 ## [0.1.2] - 2026-08-01
 
 ### Fixed
@@ -62,7 +80,8 @@ First public release.
 - Releases built by CI from a tag, with build provenance attestation and
   SHA256. No binary is committed to the repository.
 
-[Unreleased]: https://github.com/Heigen007/Voxkey/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/Heigen007/Voxkey/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/Heigen007/Voxkey/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/Heigen007/Voxkey/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/Heigen007/Voxkey/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Heigen007/Voxkey/releases/tag/v0.1.0

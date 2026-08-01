@@ -59,6 +59,7 @@ class VoxkeyApp:
         self._recorder = Recorder(config.SAMPLE_RATE, settings.max_seconds)
         self._root = tk.Tk()
         self._root.title(strings.APP_NAME)
+        self._root.report_callback_exception = self._on_tk_error
         self._overlay = Overlay(
             self._root,
             on_stop=lambda: self._post('toggle'),
@@ -120,6 +121,25 @@ class VoxkeyApp:
         self._events.put((kind, payload))
 
     def _tick(self) -> None:
+        """Drain the queue and refresh the bar.
+
+        The reschedule lives in `finally` on purpose. Anything that raises in
+        here - a Tk draw, an event handler - would otherwise skip the
+        `after()` call and kill the event loop permanently: the hooks keep
+        running, the tray icon stays, key presses keep landing in the queue,
+        and nobody ever reads it again. From the outside that is
+        indistinguishable from "the hotkey stopped working", and it leaves no
+        trace, because Tk reports callback errors to a stderr that does not
+        exist in a windowed build. Hence `report_callback_exception` too.
+        """
+        try:
+            self._pump()
+        except Exception:  # noqa: BLE001 - the loop must outlive any single tick
+            logger.exception('app: tick failed, continuing')
+        finally:
+            self._root.after(TICK_MS, self._tick)
+
+    def _pump(self) -> None:
         while True:
             try:
                 kind, payload = self._events.get_nowait()
@@ -134,7 +154,9 @@ class VoxkeyApp:
             else:
                 self._overlay.update_meter(self._recorder.level, self._recorder.seconds)
 
-        self._root.after(TICK_MS, self._tick)
+    def _on_tk_error(self, exc_type, value, traceback) -> None:
+        """Tk sends callback errors to stderr, which a windowed build does not have."""
+        logger.error('app: Tk callback error', exc_info=(exc_type, value, traceback))
 
     def _handle(self, kind: str, payload: object) -> None:
         if kind == 'toggle':
@@ -249,9 +271,11 @@ class VoxkeyApp:
         except TranscriptionError as error:
             logger.error('app: %s', error)
             self._post('error', str(error))
-        except Exception:  # noqa: BLE001 - a worker crash must not kill the app
+        except Exception as error:  # noqa: BLE001 - a worker crash must not kill the app
             logger.exception('app: unexpected failure while processing a dictation')
-            self._post('error', strings.ERROR_CRASH)
+            # Name the failure on the bar: logging is off by default, so
+            # "see the log" is useless advice at the moment it is needed.
+            self._post('error', f'{strings.ERROR_CRASH}: {type(error).__name__}'[:64])
 
     # -- settings --------------------------------------------------------
 

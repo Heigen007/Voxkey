@@ -53,6 +53,14 @@ Build: `powershell -ExecutionPolicy Bypass -File build.ps1`
 - **PowerShell scripts are ASCII-only.** Windows PowerShell 5.1 reads a `.ps1`
   without a BOM as ANSI, and non-ASCII characters break the parser, not just
   the output.
+- **`_tick` reschedules itself from a `finally`, and `report_callback_exception`
+  is wired to the logger.** This is the most important reliability line in
+  `app.py`. Tk stops calling `after()` the moment a callback raises, which
+  kills the event loop permanently — hooks keep firing, the tray icon stays,
+  key presses pile up in a queue nobody reads. It looks exactly like "the
+  hotkey stopped working" and leaves no trace, because Tk reports callback
+  errors to a stderr a windowed build does not have. Never move the
+  reschedule out of `finally`.
 - **The hotkey watchdog re-registers the hooks after 60 s of silence.** Not
   paranoia: Windows silently removes a low-level keyboard hook whose callback
   overruns `LowLevelHooksTimeout` (300 ms), and the app cannot detect that.
