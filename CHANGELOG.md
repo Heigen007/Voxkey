@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-08-01
+
+### Fixed
+
+- **One key press could fire the hotkey twice**, starting a recording and
+  stopping it in the same instant — the bar flashed "Too short" and nothing
+  was transcribed. Introduced by the watchdog in 0.1.1: the two registrations
+  it re-creates live in different registries inside the `keyboard` library
+  and need different removal calls (`remove_hotkey` for the hotkey, `unhook`
+  for the blocking hook). The wrong call raised `KeyError`, which was being
+  swallowed, so every re-arm stacked another live hotkey on top of the last.
+
+  Removal now uses the right call for each registration and logs a failure
+  instead of hiding it. **Anyone on 0.1.1 should update.**
+
 ## [0.1.1] - 2026-08-01
 
 ### Fixed
@@ -47,6 +62,7 @@ First public release.
 - Releases built by CI from a tag, with build provenance attestation and
   SHA256. No binary is committed to the repository.
 
-[Unreleased]: https://github.com/Heigen007/Voxkey/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/Heigen007/Voxkey/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/Heigen007/Voxkey/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/Heigen007/Voxkey/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Heigen007/Voxkey/releases/tag/v0.1.0

@@ -95,38 +95,113 @@ def test_any_key_counts_as_proof_of_life(listener):
     assert listener._should_rearm(time.monotonic()) is False
 
 
-def test_watchdog_reinstalls_the_hooks_after_silence(monkeypatch):
-    """The real loop, with the keyboard module stubbed out."""
-    installs = []
-    monkeypatch.setattr(hotkey.keyboard, 'add_hotkey', lambda *a, **k: installs.append('hotkey') or 'h1')
-    monkeypatch.setattr(hotkey.keyboard, 'hook', lambda *a, **k: installs.append('hook') or 'h2')
-    monkeypatch.setattr(hotkey.keyboard, 'unhook', lambda handle: None)
-    monkeypatch.setattr(hotkey, 'WATCHDOG_INTERVAL_SECONDS', 0.05)
+class FakeKeyboard:
+    """Counts live registrations, so a leak is visible rather than implied."""
 
-    listener = HotkeyListener(
-        'ctrl+alt+space',
-        on_toggle=lambda: None,
-        on_cancel=lambda: None,
-        is_recording=lambda: False,
-        rearm_after=0.1,
-    )
+    def __init__(self):
+        self.live_hotkeys = 0
+        self.live_hooks = 0
+        self.installs = 0
+
+    def add_hotkey(self, *_args, **_kwargs):
+        self.live_hotkeys += 1
+        self.installs += 1
+        return f'hotkey-{self.installs}'
+
+    def hook(self, *_args, **_kwargs):
+        self.live_hooks += 1
+        return f'hook-{self.installs}'
+
+    def remove_hotkey(self, _handle):
+        self.live_hotkeys -= 1
+
+    def unhook(self, _handle):
+        self.live_hooks -= 1
+
+    def install(self, monkeypatch):
+        for name in ('add_hotkey', 'hook', 'remove_hotkey', 'unhook'):
+            monkeypatch.setattr(hotkey.keyboard, name, getattr(self, name))
+
+
+def _run_until_rearmed(listener, rounds=2, timeout=6.0):
     listener.start()
     try:
-        deadline = time.monotonic() + 5
-        while listener.rearm_count < 1 and time.monotonic() < deadline:
+        deadline = time.monotonic() + timeout
+        while listener.rearm_count < rounds and time.monotonic() < deadline:
             time.sleep(0.05)
     finally:
         listener.stop()
 
-    assert listener.rearm_count >= 1, 'the watchdog never re-armed'
-    assert installs.count('hook') >= 2, 'the blocking hook was not re-installed'
-    assert installs.count('hotkey') >= 2, 'the hotkey was not re-registered'
+
+def test_watchdog_reinstalls_the_hooks_after_silence(monkeypatch):
+    fake = FakeKeyboard()
+    fake.install(monkeypatch)
+    monkeypatch.setattr(hotkey, 'WATCHDOG_INTERVAL_SECONDS', 0.05)
+
+    listener = HotkeyListener(
+        'ctrl+alt+space', lambda: None, lambda: None, lambda: False, rearm_after=0.1
+    )
+    _run_until_rearmed(listener, rounds=2)
+
+    assert listener.rearm_count >= 2, 'the watchdog never re-armed'
+    assert fake.installs >= 3, 'the hotkey was not re-registered'
+
+
+def test_a_re_arm_never_stacks_a_second_registration(monkeypatch):
+    """The regression that shipped in 0.1.1.
+
+    `unhook` cannot remove an `add_hotkey` registration - that needs
+    `remove_hotkey`. With the wrong call the old hotkey stayed alive, so after
+    one re-arm a single key press fired the callback twice: the recording
+    started and stopped instantly.
+    """
+    fake = FakeKeyboard()
+    fake.install(monkeypatch)
+    monkeypatch.setattr(hotkey, 'WATCHDOG_INTERVAL_SECONDS', 0.05)
+
+    listener = HotkeyListener(
+        'ctrl+alt+space', lambda: None, lambda: None, lambda: False, rearm_after=0.1
+    )
+    _run_until_rearmed(listener, rounds=3)
+
+    assert listener.rearm_count >= 3
+    # stop() removed the last pair, so nothing at all should be left behind.
+    assert fake.live_hotkeys == 0, f'{fake.live_hotkeys} hotkey registrations leaked'
+    assert fake.live_hooks == 0, f'{fake.live_hooks} hook registrations leaked'
+
+
+def test_install_and_remove_leave_the_real_library_clean():
+    """Against the actual keyboard library, not a stub.
+
+    This is what proves the removal APIs are the right ones: a stub would
+    happily agree with whichever call we chose.
+    """
+    listener = HotkeyListener(
+        'ctrl+alt+f24', lambda: None, lambda: None, lambda: False
+    )
+    before = (len(hotkey.keyboard._hooks), len(hotkey.keyboard._hotkeys))
+    try:
+        listener._install()
+        during = (len(hotkey.keyboard._hooks), len(hotkey.keyboard._hotkeys))
+        assert during > before, 'nothing was registered'
+
+        listener._remove()
+        assert (len(hotkey.keyboard._hooks), len(hotkey.keyboard._hotkeys)) == before, (
+            'a registration survived removal'
+        )
+
+        # And doing it twice must not accumulate either.
+        for _ in range(3):
+            listener._install()
+            listener._remove()
+        assert (len(hotkey.keyboard._hooks), len(hotkey.keyboard._hotkeys)) == before
+    finally:
+        hotkey.keyboard.unhook_all()
 
 
 def test_stopping_ends_the_watchdog(monkeypatch):
-    monkeypatch.setattr(hotkey.keyboard, 'add_hotkey', lambda *a, **k: 'h1')
-    monkeypatch.setattr(hotkey.keyboard, 'hook', lambda *a, **k: 'h2')
-    monkeypatch.setattr(hotkey.keyboard, 'unhook', lambda handle: None)
+    fake = FakeKeyboard()
+    fake.install(monkeypatch)
     monkeypatch.setattr(hotkey, 'WATCHDOG_INTERVAL_SECONDS', 0.05)
 
     listener = HotkeyListener(
@@ -138,3 +213,5 @@ def test_stopping_ends_the_watchdog(monkeypatch):
 
     assert listener.rearm_count == 0
     assert not listener._watchdog.is_alive()
+    assert fake.live_hotkeys == 0
+    assert fake.live_hooks == 0

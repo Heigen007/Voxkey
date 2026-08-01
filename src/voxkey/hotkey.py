@@ -53,6 +53,18 @@ class HotkeyError(Exception):
     """Raised when the hotkey combination cannot be registered."""
 
 
+def _drop(kind: str, remover, handle) -> None:
+    """Remove one registration, complaining if it did not come off.
+
+    A leaked registration is not cosmetic: the next install stacks a second
+    one on top and every key press fires the callback twice.
+    """
+    try:
+        remover(handle)
+    except Exception as error:  # noqa: BLE001
+        logger.error('hotkey: could not remove the %s registration: %r', kind, error)
+
+
 class HotkeyListener:
     """Owns the global hooks for the lifetime of the app, and keeps them alive."""
 
@@ -70,7 +82,9 @@ class HotkeyListener:
         self._is_recording = is_recording
         self._rearm_after = rearm_after
         self._swallowed_down: set[str] = set()
-        self._handles: list[object] = []
+        # Two registrations, two different removal functions - see _remove().
+        self._hotkey_handle: object | None = None
+        self._hook_handle: object | None = None
         self._lock = threading.Lock()
         self._stopping = threading.Event()
         self._watchdog: threading.Thread | None = None
@@ -100,25 +114,32 @@ class HotkeyListener:
 
     def _install(self) -> None:
         try:
-            self._handles.append(
-                keyboard.add_hotkey(
-                    self._combo, self._on_toggle, suppress=True, trigger_on_release=False
-                )
+            self._hotkey_handle = keyboard.add_hotkey(
+                self._combo, self._on_toggle, suppress=True, trigger_on_release=False
             )
         except Exception as error:  # noqa: BLE001 - bad combo strings raise a few types
             raise HotkeyError(ERROR_HOTKEY.format(hotkey=self._combo, reason=error)) from error
 
         # A blocking hook: returning False swallows the event.
-        self._handles.append(keyboard.hook(self._on_event, suppress=True))
+        self._hook_handle = keyboard.hook(self._on_event, suppress=True)
         self._last_event = time.monotonic()
 
     def _remove(self) -> None:
-        for handle in self._handles:
-            try:
-                keyboard.unhook(handle)
-            except Exception:  # noqa: BLE001 - unhooking a dead handle is harmless
-                pass
-        self._handles = []
+        """Undo _install().
+
+        The two registrations live in different registries inside the keyboard
+        library and need different removal calls: `remove_hotkey` for the
+        hotkey, `unhook` for the blocking hook. Using the wrong one raises
+        KeyError and leaves the registration in place - which, on a re-arm,
+        means two hotkeys firing the callback twice for one key press. So a
+        failure here is logged loudly rather than swallowed.
+        """
+        if self._hotkey_handle is not None:
+            _drop('hotkey', keyboard.remove_hotkey, self._hotkey_handle)
+            self._hotkey_handle = None
+        if self._hook_handle is not None:
+            _drop('hook', keyboard.unhook, self._hook_handle)
+            self._hook_handle = None
 
     # -- watchdog --------------------------------------------------------
 
