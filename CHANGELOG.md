@@ -6,14 +6,6 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-### Fixed
-
-- The hotkey could stop working while the app kept running. Windows silently
-  removes a low-level keyboard hook whose callback overruns its 300 ms
-  timeout, which a Python callback on a loaded machine can do. A watchdog now
-  re-registers the hooks after 60 seconds without a single key event, so the
-  app heals itself instead of needing a restart.
-
 ## [0.1.0] - 2026-08-01
 
 First public release.
@@ -37,6 +29,10 @@ First public release.
   and no admin rights.
 - Refuses to paste into the wrong window: if focus cannot be restored the
   transcript is left on the clipboard instead.
+- A watchdog that re-registers the keyboard hooks after 60 seconds without a
+  key event. Windows silently drops a low-level hook whose callback overruns
+  its 300 ms timeout, leaving the app running but deaf; this heals it without
+  a restart.
 - Optional diagnostics that distinguish a lost microphone stream from a
   truncated transcription.
 - Releases built by CI from a tag, with build provenance attestation and
