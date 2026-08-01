@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-01
+
+### Fixed
+
+- **The hotkey could silently stop working.** Windows removes a low-level
+  keyboard hook whose callback overruns `LowLevelHooksTimeout` (300 ms) and
+  tells nobody: the process keeps running, the tray icon stays put, and key
+  presses simply stop arriving. A Python callback on a machine under heavy
+  load can overrun that, and it was reproduced doing exactly that. A watchdog
+  now re-registers the hooks after 60 seconds without a single key event —
+  by definition nobody is typing at that moment, so there is no gap during
+  real work and no synthetic keystrokes are needed.
+
 ## [0.1.0] - 2026-08-01
 
 First public release.
@@ -29,14 +42,11 @@ First public release.
   and no admin rights.
 - Refuses to paste into the wrong window: if focus cannot be restored the
   transcript is left on the clipboard instead.
-- A watchdog that re-registers the keyboard hooks after 60 seconds without a
-  key event. Windows silently drops a low-level hook whose callback overruns
-  its 300 ms timeout, leaving the app running but deaf; this heals it without
-  a restart.
 - Optional diagnostics that distinguish a lost microphone stream from a
   truncated transcription.
 - Releases built by CI from a tag, with build provenance attestation and
   SHA256. No binary is committed to the repository.
 
-[Unreleased]: https://github.com/Heigen007/Voxkey/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Heigen007/Voxkey/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/Heigen007/Voxkey/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Heigen007/Voxkey/releases/tag/v0.1.0
